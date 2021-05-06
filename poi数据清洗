@@ -1,5 +1,7 @@
-1、建立索引
-	
+1、建表并导入csv数据
+copy poi_sjqx (id,lng,lat,name,address,telephone,type,areaid,wgslng,wgslat,bdlng,bdlat,updatetime) from '/home/lishichen/filecsv/poi.csv' with csv header;
+
+2、建立索引	
 	1）
 	CREATE INDEX 
 poi_sjqx_name_address_areaid
@@ -35,7 +37,7 @@ poi_sjqx_id
  poi_sjqx
   (id);
 
-2、常规数据清洗（对name、address都要清洗，都要执行）
+3、常规数据清洗（对name、address都要清洗，都要执行）
 	1）不包含字母、数字、汉字的正则表达式
 	^[^a-zA-Z0-9\u4e00-\u9fa5]+$
 
@@ -90,7 +92,7 @@ $$language plpgsql strict immutable;
 
 	10）查询areaid为空的值
 
-3、去重
+4、去重
 DELETE FROM "poi_sjqx" P1
 WHERE P1."id" < 
 ( SELECT MAX(P2."id")
@@ -99,12 +101,12 @@ WHERE P1.name = P2.name
 AND P1.address = P2.address 
 AND P1.areaid = P2.areaid);
 
-4、更新areaid,county名称————此时需新建city、poicode、province、county字段
+5、更新areaid,county名称————此时需新建city、poicode、province、county字段
 	1）删除索引
 	2）更新areaid
 UPDATE poi_sjqx SET areaid= county.code,county= county."name" FROM county WHERE ST_Contains(county.geom, ST_GeomFromText('POINT(' || poi_sjqx.lng || ' ' ||poi_sjqx.lat || ')',4326));
 
-5、更新city名称，poicode
+6、更新city名称，poicode
 	1）常规更新
 	UPDATE poi_sjqx SET city= city."name",poicode=city.code  FROM city WHERE substr(poi_sjqx.areaid, 0,5)=substr(city.code,0,5)
 	2）更新直辖市
@@ -113,8 +115,11 @@ UPDATE poi_sjqx SET areaid= county.code,county= county."name" FROM county WHERE 
 	UPDATE poi_sjqx SET city= '重庆市',poicode='500000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='50'
 	UPDATE poi_sjqx SET city= '上海市',poicode='310000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='31'
 
-6、更新province名称
+7、更新province名称
 	UPDATE poi_sjqx SET province= province."name"  FROM province WHERE substr(poi_sjqx.areaid, 0,3)=substr(province.code,0,3)
+
+8、导出csv文件
+	copy ( select * from poi_sjqx) to '/home/lishichen/filecsv/poi_sjqx_dr.csv' with csv header;
 
 
 单独建索引
