@@ -1,0 +1,163 @@
+1、建立索引
+	
+	1）
+	CREATE INDEX 
+poi_sjqx_name_address_areaid
+ ON
+ poi_sjqx
+  (name,address,areaid);
+  
+  2）
+  CREATE INDEX 
+poi_sjqx_name
+ ON
+ poi_sjqx
+  (name);
+  
+  3）
+  CREATE INDEX 
+poi_sjqx_address
+ ON
+ poi_sjqx
+  (address);
+  
+  4）
+  CREATE INDEX 
+poi_sjqx_areaid
+ ON
+ poi_sjqx
+  (areaid);
+  
+  5）
+  CREATE INDEX 
+poi_sjqx_id
+ ON
+ poi_sjqx
+  (id);
+
+2、常规数据清洗（对name、address都要清洗，都要执行）
+	1）不包含字母、数字、汉字的正则表达式
+	^[^a-zA-Z0-9\u4e00-\u9fa5]+$
+
+	2）不包含字母、数字、汉字和全角zZ的正则表达式
+	'^[^ｚＺa-zA-Z0-9\u4e00-\u9fa5]+$'
+
+	3）匹配name数据
+	SELECT * FROM poi_sjqx where "name" ~ '^[^ｚＺa-zA-Z0-9\u4e00-\u9fa5]+$'
+
+	4）将3）匹配到的name数据置为null
+	UPDATE poi_sjqx SET "name"=NULL where "name" ~ '^[^ｚＺa-zA-Z0-9\u4e00-\u9fa5]+$'
+
+	5）匹配name数据
+	SELECT * FROM poi_sjqx where "name" ~ '^[^a-zA-Z0-9\u4e00-\u9fa5]+$'
+
+	6）全角转半角方法——在postgres中执行
+	--© 2014,swish，原版首发：http://blog.qdac.cc/?p=1281，自由使用，保留版权    
+    
+create or replace function CnFullToHalf(s character varying)    
+returns character varying    
+as    
+$$    
+declare    
+  retval character varying;    
+  c character varying;    
+  l integer;    
+begin    
+l=length(s);    
+retval='';    
+while l>0 loop    
+  c=left(s,1);    
+  if c='　' then                    -- 全角空格    
+    retval=retval||' ';    
+  elsif c>='！' and c<='～' then    -- 全角!到~的范围    
+    retval=retval || chr(ascii('!')+ascii(c)-ascii('！'));    
+  else    
+    retval=retval||c;    
+  end if;    
+  s=substring(s,2,l-1);    
+  l=l-1;    
+end loop;    
+return retval;    
+end;    
+$$language plpgsql strict immutable;
+
+	7）更新5）中查询到的数据
+	UPDATE poi_sjqx SET "name"=CnFullToHalf("name")  where "name" ~ '^[^a-zA-Z0-9\u4e00-\u9fa5]+$'
+
+	8）对address执行以上步骤
+
+	9）查询name和address都为null的数据，并删除
+
+	10）查询areaid为空的值
+
+3、去重
+DELETE FROM "poi_sjqx" P1
+WHERE P1."id" < 
+( SELECT MAX(P2."id")
+FROM "poi_sjqx" P2
+WHERE P1.name = P2.name
+AND P1.address = P2.address 
+AND P1.areaid = P2.areaid);
+
+4、更新areaid,county名称————此时需新建city、poicode、province、county字段
+	1）删除索引
+	2）更新areaid
+UPDATE poi_sjqx SET areaid= county.code,county= county."name" FROM county WHERE ST_Contains(county.geom, ST_GeomFromText('POINT(' || poi_sjqx.lng || ' ' ||poi_sjqx.lat || ')',4326));
+
+5、更新city名称，poicode
+	1）常规更新
+	UPDATE poi_sjqx SET city= city."name",poicode=city.code  FROM city WHERE substr(poi_sjqx.areaid, 0,5)=substr(city.code,0,5)
+	2）更新直辖市
+	UPDATE poi_sjqx SET city= '北京市',poicode='110000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='11'
+	UPDATE poi_sjqx SET city= '天津市',poicode='120000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='12'
+	UPDATE poi_sjqx SET city= '重庆市',poicode='500000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='50'
+	UPDATE poi_sjqx SET city= '上海市',poicode='310000'  FROM city WHERE substr(poi_sjqx.areaid, 0,3)='31'
+
+6、更新province名称
+	UPDATE poi_sjqx SET province= province."name"  FROM province WHERE substr(poi_sjqx.areaid, 0,3)=substr(province.code,0,3)
+
+
+单独建索引
+
+河南
+统计用区划代码 名称
+419001000000 济源市
+
+湖北
+统计用区划代码 名称
+429004000000 仙桃市
+429005000000 潜江市
+429006000000 天门市
+429021000000 神农架林区
+
+海南
+统计用区划代码 名称
+469001000000 五指山市
+469002000000 琼海市
+469005000000 文昌市
+469006000000 万宁市
+469007000000 东方市
+469021000000 定安县
+469022000000 屯昌县
+469023000000 澄迈县
+469024000000 临高县
+469025000000 白沙黎族自治县
+469026000000 昌江黎族自治县
+469027000000 乐东黎族自治县
+469028000000 陵水黎族自治县
+469029000000 保亭黎族苗族自治县
+469030000000 琼中黎族苗族自治县
+
+
+新疆
+统计用区划代码 名称
+659001000000 石河子市
+659002000000 阿拉尔市
+659003000000 图木舒克市
+659004000000 五家渠市
+659005000000 北屯市
+659006000000 铁门关市
+659007000000 双河市
+659008000000 可克达拉市
+659009000000 昆玉市
+659010000000 胡杨河市
