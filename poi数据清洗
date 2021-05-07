@@ -37,7 +37,16 @@ poi_sjqx_id
  poi_sjqx
   (id);
 
-3、常规数据清洗（对name、address都要清洗，都要执行）
+3、去重
+DELETE FROM "poi_sjqx" P1
+WHERE P1."id" < 
+( SELECT MAX(P2."id")
+FROM "poi_sjqx" P2
+WHERE P1.name = P2.name
+AND P1.address = P2.address 
+AND P1.areaid = P2.areaid);
+
+4、常规数据清洗（对name、address都要清洗，都要执行）
 	1）不包含字母、数字、汉字的正则表达式
 	^[^a-zA-Z0-9\u4e00-\u9fa5]+$
 
@@ -92,15 +101,6 @@ $$language plpgsql strict immutable;
 
 	10）查询areaid为空的值
 
-4、去重
-DELETE FROM "poi_sjqx" P1
-WHERE P1."id" < 
-( SELECT MAX(P2."id")
-FROM "poi_sjqx" P2
-WHERE P1.name = P2.name
-AND P1.address = P2.address 
-AND P1.areaid = P2.areaid);
-
 5、更新areaid,county名称————此时需新建city、poicode、province、county字段
 	1）删除索引
 	2）更新areaid
@@ -120,6 +120,15 @@ UPDATE poi_sjqx SET areaid= county.code,county= county."name" FROM county WHERE 
 
 8、导出csv文件
 	copy ( select * from poi_sjqx) to '/home/lishichen/filecsv/poi_sjqx_dr.csv' with csv header;
+
+9、es配置中增加
+	transport.tcp.port: 9600
+
+10、logstash导入性能配置
+	pipeline.workers: 4
+
+ 	pipeline.batch.size: 150
+
 
 
 单独建索引

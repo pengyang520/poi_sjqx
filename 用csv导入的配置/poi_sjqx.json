@@ -1,0 +1,106 @@
+{
+  "order": 303,
+  "version": 6100,
+  "index_patterns": [
+    "poi*"
+  ],
+  "settings": {
+    "index.refresh_interval": -1,
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "similarity": {
+      "my_bm25": {
+        "type": "BM25",
+        "b": "0.5"
+      }
+    },
+    "analysis": {
+      "filter": {
+        "edge_ngram_filter": {
+          "type": "edge_ngram",
+          "min_gram": 1,
+          "max_gram": 16
+        },
+        "ngram_filter": {
+          "type": "ngram",
+          "min_gram": 2,
+          "max_gram": 2
+        }
+      },
+      "analyzer": {
+        "ngramIndexAnalyzer": {
+          "type": "custom",
+          "tokenizer": "keyword",
+          "filter": [
+            "ngram_filter",
+            "lowercase"
+          ]
+        },
+        "ngramSearchAnalyzer": {
+          "type": "custom",
+          "tokenizer": "keyword",
+          "filter": [
+            "ngram_filter",
+            "lowercase"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "name": {
+          "type": "text",
+          "index":true,
+          "similarity": "my_bm25"
+        },
+        "address": {
+          "type": "text",
+          "index":true,
+          "similarity": "my_bm25"
+        },
+        "location": {
+          "index": false,
+          "type": "geo_point"
+        },
+        "id": {
+          "index": true,
+          "type": "keyword"
+        },
+        "countyCode": {
+          "index": true,
+          "type": "keyword"
+        },
+        "city": {
+          "index": false,
+          "type": "keyword"
+        },
+        "telephone": {
+          "index": false,
+          "type": "keyword"
+        },
+        "city_code": {
+          "index": false,
+          "type": "keyword"
+        },
+        "type": {
+          "index": false,
+          "type": "keyword"
+        },
+        "province": {
+          "index": false,
+          "type": "keyword"
+        },
+        "county": {
+          "index": false,
+          "type": "keyword"
+        },
+        "guid": {
+          "index": false,
+          "type": "keyword"
+        }
+      }
+      }
+    }
+}
